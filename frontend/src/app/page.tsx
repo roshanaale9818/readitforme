@@ -14,7 +14,7 @@ import { motion } from "framer-motion";
 
 const MotionButton = motion(Button);
 
-const buttonHoverEffect = {
+export const buttonHoverEffect = {
   scale: 1.02,
   transition: {
     duration: 0.2,
@@ -22,7 +22,7 @@ const buttonHoverEffect = {
   },
 };
 
-const buttonTapEffect = {
+export const buttonTapEffect = {
   scale: 0.98,
 };
 

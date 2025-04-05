@@ -1,21 +1,21 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { OpenAI as OpenAIApi } from 'openai';
-import { APIError } from 'openai';
+import axios from 'axios';
+
+interface OllamaApiResponse {
+  response: string;
+}
 
 @Injectable()
 export class AiService {
   private readonly logger = new Logger(AiService.name);
-  private openai!: OpenAIApi;
+  private readonly ollamaApiUrl: string;
 
   constructor(private configService: ConfigService) {
-    const apiKey = this.configService.get<string>('OPENAI_API_KEY');
-    if (!apiKey) {
-      this.logger.error('OPENAI_API_KEY is not set in environment variables');
-      throw new Error('OpenAI API key is not configured');
-    }
-
-    this.openai = new OpenAIApi({ apiKey });
+    this.ollamaApiUrl =
+      this.configService.get<string>('OLLAMA_API_URL') ||
+      'http://localhost:11434/api/generate';
+    console.log('API URL CAME HERE0', this.ollamaApiUrl);
   }
 
   async summarizeDocument(content: string): Promise<string> {
@@ -23,50 +23,38 @@ export class AiService {
       throw new Error('No content provided for summarization');
     }
 
-    try {
-      const prompt = `Please provide a comprehensive summary of the following document, focusing on the main points and key takeaways:
+    const prompt = `Summarize the following content accurately and concisely while preserving key details, main arguments, and important insights. Ensure clarity and coherence in the summary, avoiding unnecessary information or misinterpretation. Maintain a neutral and professional tone. If the content includes structured data (such as lists or bullet points), retain its logical flow. Here is the content to summarize:
 
 ${content}
 
 Please structure the summary to be clear and concise while capturing the essential information.`;
 
-      const completion = await this.openai.chat.completions.create({
-        model: 'gpt-4o',
-        messages: [
-          {
-            role: 'system',
-            content:
-              'You are a professional document summarizer. Create clear, concise, and accurate summaries that capture the main points and key information from documents.',
-          },
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
-        temperature: 0.7,
-        max_tokens: 1000,
-      });
+    try {
+      const { data } = await axios.post<OllamaApiResponse>(
+        this.ollamaApiUrl,
+        {
+          model: 'mistral:latest',
+          prompt: prompt,
+          stream: false,
+        },
+        {
+          headers: { 'Content-Type': 'application/json' },
+        },
+      );
 
-      const summary = completion?.choices?.[0]?.message?.content;
-      if (!summary) {
-        this.logger.error('OpenAI response contained no summary');
+      if (!data || !data.response) {
+        this.logger.error('Ollama response contained no summary');
         throw new Error(
           'Failed to generate summary: No content received from AI',
         );
       }
 
-      return summary;
+      return data.response;
     } catch (error) {
       this.logger.error('Error generating summary:', error);
-      const err = error as APIError;
-
-      if (err.status === 401) {
-        throw new Error('Invalid OpenAI API key');
-      }
-
-      throw new Error(
-        `Failed to generate summary: ${err.message || 'Unknown error occurred'}`,
-      );
+      const errorMessage =
+        error instanceof Error ? error.message : 'Unknown error';
+      throw new Error(`Failed to generate summary: ${errorMessage}`);
     }
   }
 }

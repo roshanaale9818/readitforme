@@ -69,3 +69,27 @@ export async function summarizeDocument(id: string): Promise<UploadResponse> {
     throw new Error("Failed to generate summary. Please try again.");
   }
 }
+
+// ...existing code...
+
+export async function getDocument(
+  id: string | undefined
+): Promise<UploadResponse> {
+  if (!id) {
+    throw new Error("Document ID is required");
+  }
+  try {
+    const response = await api.get<UploadResponse>(`/documents/${id}`);
+    return response.data;
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      if (error.response?.status === 404) {
+        throw new Error("Document not found");
+      }
+      throw new Error(
+        error.response?.data?.message || "Failed to fetch document"
+      );
+    }
+    throw new Error("Failed to fetch document. Please try again.");
+  }
+}

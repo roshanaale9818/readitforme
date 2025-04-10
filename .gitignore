@@ -6,4 +6,5 @@
 /backend/.env
 /backend/node_modules
 /backend/.env
- 
+/backend/.env.example
+/frontend/.env.example
